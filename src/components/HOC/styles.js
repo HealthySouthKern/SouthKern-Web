@@ -54,7 +54,16 @@ const layoutStyle = `
         background-color: #57803A;
     }
     
+    .content_div {
+        padding: 24px;
+    }
+    
     @media (max-width: 1000px) {
+        
+        .content_div {
+            padding: 5px;
+        }
+        
         .ant-layout-sider {
           flex: 0 0 95% !important;
           width: 64px;

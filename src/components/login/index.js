@@ -7,6 +7,7 @@ import firebase from '../../firebase'
 import { loginStyle } from './styles';
 import bhc_logo from '../../resources/assets/bhc_logo_color_centered.png';
 
+const fetchUserWithUserID = firebase.functions().httpsCallable('fetchUserwithUserID');
 const addPerformedAction = firebase.functions().httpsCallable('addPerformedAction');
 
 class Login extends Component {
@@ -23,7 +24,9 @@ class Login extends Component {
         firebase.auth().onAuthStateChanged(function(user) {
             if (user) {
                 // User is signed in.
-                this.props.history.push('/');
+                if (this.props) {
+                    this.props.history.push('/');
+                }
             }
         });
     }
@@ -31,47 +34,36 @@ class Login extends Component {
     onLoginClicked() {
         let email = this.state.email;
         let password = this.state.password;
-        let sendbirdUser = {};
-
-        console.log(`email: ${email} password: ${password}`);
 
         firebase.auth().signInWithEmailAndPassword(email, password).then(() => {
-            const user = firebase.auth().currentUser;
-            localStorage.setItem('fb_user', JSON.stringify(user));
+            const currentUser = firebase.auth().currentUser;
 
-            const fetchUserWithUserID = firebase.functions().httpsCallable('fetchUserwithUserID');
-            user.getIdToken().then((token) => {
-                fetchUserWithUserID({ token: token, userID: user.email }).then((result) => {
+            currentUser.getIdToken().then((token) => {
+                    firebase.database().ref(`southkernUsers/${currentUser.uid}`).once('value').then((user) => {
+                        const firebaseUser = user.val();
+                        if (firebaseUser.user_type === 'admin') {
 
-                    sendbirdUser = result.data;
+                            // route
+                            localStorage.setItem('bhc_user', JSON.stringify(firebaseUser));
+                            localStorage.setItem('bhc_token', token);
 
-                    if (sendbirdUser.metadata.user_type === 'admin') {
-                        // route
-                        console.log('connected');
-                        localStorage.setItem('bhc_user', JSON.stringify(sendbirdUser));
-                        localStorage.setItem('bhc_token', token);
+                            addPerformedAction({token: token, user_name: firebaseUser.user_name, action: 'logged in', date: Date.now()}).then(() => {
+                                // history item created
+                            }).catch(err => {
+                                console.log(err);
+                            });
 
-                        addPerformedAction({token: token, nickname: sendbirdUser.nickname, action: 'logged in', date: Date.now()}).then(() => {
-                            // history item created
-                        });
+                            this.setState({ email: '', password: '' });
 
-                        this.setState({ email: '', password: '' })
-
-                        this.props.history.push('/dashboard');
-
-                    } else {
-                        // not an admin -> sign out of firebase
-                        firebase.auth().signOut().then(() => {
-                            // sign out successful
-                            console.log('signed out')
-                        });
-                    }
-
-                }).catch(function(error) {
-                    // Getting the Error details.
-                    console.log(error)
-                    // ...
-                });
+                            this.props.history.push('/dashboard');
+                        } else {
+                            // not an admin -> sign out of firebase
+                            firebase.auth().signOut().then(() => {
+                                // sign out successful
+                                console.log('signed out')
+                            });
+                        }
+                    });
             });
         }).catch(function(error) {
             // Handle Errors here.

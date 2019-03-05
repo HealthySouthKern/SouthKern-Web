@@ -181,7 +181,7 @@ class dashboard extends Component {
                     <Col className='grid_container' xs={{ span: 1, offset: 1 }}>
                     <Card className='grid_box' style={{ overflowY: 'scroll', overflowX: 'hidden' }}>
                         {historyItems.map(historyItem => {
-                            return <HistoryItem nickname={historyItem.nickname} action={historyItem.action} date={historyItem.date} />
+                            return <HistoryItem user_name={historyItem.user_name} action={historyItem.action} date={historyItem.date} />
                         })}
                     </Card>
                     </Col>

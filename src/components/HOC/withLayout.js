@@ -66,7 +66,7 @@ function withLayout(ComponentToWrap) {
 
         displayPageHeader() {
             const currentPath = this.props.location.pathname.split('/')[1];
-            const displayName = bhcUser.nickname.charAt(0).toLocaleUpperCase() + bhcUser.nickname.slice(1);
+            const displayName = bhcUser.user_name.charAt(0).toLocaleUpperCase() + bhcUser.user_name.slice(1);
             switch(currentPath) {
                 case 'dashboard':
                     return (
@@ -126,7 +126,7 @@ function withLayout(ComponentToWrap) {
                             {this.displayPageHeader()}
                         </Header>
                         <Content style={{ margin: '24px 16px 0' }}>
-                            <div style={{ padding: 0, minHeight: 360 }}>
+                            <div className='content_div' style={{ minHeight: 360 }}>
                                 <ComponentToWrap user={this.state.user} {...this.props} />
                             </div>
                         </Content>

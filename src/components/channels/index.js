@@ -20,8 +20,14 @@ const unBanOrUnMuteUser = firebase.functions().httpsCallable('unBanOrUnMuteUser'
 function checkIfUserBannedOrMuted(list, userToCheck) {
     for (let i = 0 ; i < list.length ; i++) {
         console.log(list[i]);
-        if (list[i].user_id === userToCheck.user_id) {
-            return true;
+        if (list[i].user != null) {
+            if (list[i].user.user_id === userToCheck.user_id) {
+                return true;
+            }
+        } else {
+            if (list[i].user_id === userToCheck.user_id) {
+                return true;
+            }
         }
     }
 
@@ -132,8 +138,8 @@ class ChannelManager extends Component {
 
         const columnsMobile = [{
             title: 'Nickname',
-            dataIndex: 'nickname',
-            key: 'nickname'
+            dataIndex: 'user_name',
+            key: 'user_name'
         }, {
             title: 'Actions',
             dataIndex: 'operation',
@@ -176,8 +182,8 @@ class ChannelManager extends Component {
             key: 'user_id'
         }, {
             title: 'Nickname',
-            dataIndex: 'nickname',
-            key: 'nickname'
+            dataIndex: 'user_name',
+            key: 'user_name'
         }, {
             title: 'Status',
             className: 'status_column',
@@ -223,8 +229,8 @@ class ChannelManager extends Component {
 
         const columnsMobile = [{
             title: 'Nickname',
-            dataIndex: 'nickname',
-            key: 'nickname'
+            dataIndex: 'user_name',
+            key: 'user_name'
         }, {
             title: 'Actions',
             dataIndex: 'operation',
@@ -285,6 +291,8 @@ class ChannelManager extends Component {
             if (e.target.checked) {
                 switch (action) {
                     case 'ban':
+                        parentRecord.bannedMembers.push(record);
+                        this.forceUpdate()
                         banOrMuteUser({
                             token: parentRecord.firebaseToken,
                             userID: record.user_id,
@@ -292,11 +300,12 @@ class ChannelManager extends Component {
                             channel: parentRecord.channel_url,
                             action: 'ban'
                         }).then((data) => {
-                            parentRecord.bannedMembers.push(record);
-                            this.forceUpdate()
+
                         });
                         break;
                     case 'mute':
+                        parentRecord.mutedMembers.push(record);
+                        this.forceUpdate()
                         banOrMuteUser({
                             token: parentRecord.firebaseToken,
                             userID: record.user_id,
@@ -304,29 +313,33 @@ class ChannelManager extends Component {
                             channel: parentRecord.channel_url,
                             action: 'mute'
                         }).then((data) => {
-                            parentRecord.mutedMembers.push(record);
-                            this.forceUpdate()
+
                         });
                         break;
                 }
             } else {
                 switch (action) {
                     case 'ban':
+                        console.log(record);
+                        removeUserFromArray(parentRecord.bannedMembers, record, () => {
+                            this.forceUpdate()
+                        });
                         unBanOrUnMuteUser({
                             token: parentRecord.firebaseToken,
                             userID: record.user_id,
                             channelType: parentRecord.members ? 'group_channels' : 'open_channels',
                             channel: parentRecord.channel_url,
                             action: 'ban'
-                        }).then((data) => {
-                            removeUserFromArray(parentRecord.bannedMembers, record, () => {
-                                this.forceUpdate()
-                            });
+                        }).then(() => {
+
                         }).catch(e => {
                             console.log(e);
                         });
                         break;
                     case 'mute':
+                        removeUserFromArray(parentRecord.mutedMembers, record, () => {
+                            this.forceUpdate()
+                        });
                         unBanOrUnMuteUser({
                             token: parentRecord.firebaseToken,
                             userID: record.user_id,
@@ -334,9 +347,7 @@ class ChannelManager extends Component {
                             channel: parentRecord.channel_url,
                             action: 'mute'
                         }).then((data) => {
-                            removeUserFromArray(parentRecord.mutedMembers, record, () => {
-                                this.forceUpdate()
-                            });
+
                         }).catch(e => {
                             console.log(e);
                         });
@@ -368,8 +379,8 @@ class ChannelManager extends Component {
                 channelType: isGroupChannel ? 'group_channels' : 'open_channels',
                 action: 'ban'
             }).then((bannedUsers) => {
-                console.log(bannedUsers.data.banned_list);
                 record.bannedMembers = bannedUsers.data.banned_list;
+                return bannedUsers.data.banned_list;
             }).catch((e) => {
                 console.log(e);
             });
@@ -388,6 +399,20 @@ class ChannelManager extends Component {
             });
 
             Promise.all([channelMembersPromise, fetchBannedPromise, fetchMutedPromise].map(p => p.catch(e => e))).then(results => {
+                console.log('test2');
+                console.log(results);
+                let bannedUsers = results[1];
+                if (isGroupChannel && record) {
+                    for (let bannedUser in bannedUsers) {
+                        record.members.push(bannedUsers[bannedUser].user);
+                        record.member_count = record.member_count + 1;
+                    }
+                } else {
+                    for (let bannedUser in bannedUsers) {
+                        record.participants.push(bannedUsers[bannedUser].user);
+                        record.participant_count = record.participant_count + 1;
+                    }
+                }
                 this.setState({ isExpanded, loadingSubTable: false });
             }).catch(e => {
                 console.log(e);
