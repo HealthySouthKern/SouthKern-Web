@@ -3,6 +3,17 @@ const channelStyles = `
         margin: 16px 16px 0 0 !important;
     }
     
+    .more_icon {
+        -webkit-transform: rotate(90deg);
+        -moz-transform: rotate(90deg);
+        -o-transform: rotate(90deg);
+        -ms-transform: rotate(90deg);
+        transform: rotate(90deg);
+        
+        cursor: pointer;
+        font-size: 25px;
+    }
+    
     @media (max-width: 1000px) {
         .email_column {
             display: hidden !important;

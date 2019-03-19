@@ -59,6 +59,9 @@ function withLayout(ComponentToWrap) {
                 case 'dashboard':
                     this.props.history.push('/dashboard');
                     return;
+                case 'users':
+                    this.props.history.push('/users');
+                    return
                 default:
                     return;
             }
@@ -82,6 +85,13 @@ function withLayout(ComponentToWrap) {
                             <p className='sub_header'>BHC SouthKern - {displayName}</p>
                         </div>
                     );
+                case 'users':
+                    return (
+                        <div className='header_div'>
+                            <p className='header'>Users</p>
+                            <p className='sub_header'>BHC SouthKern - {displayName}</p>
+                        </div>
+                    )
             }
         }
 
@@ -107,7 +117,7 @@ function withLayout(ComponentToWrap) {
                                 <Icon type="notification" />
                                 <span className="nav-text">Channels</span>
                             </Menu.Item>
-                            <Menu.Item key="3">
+                            <Menu.Item key="users">
                                 <Icon type="user" />
                                 <span className="nav-text">Users</span>
                             </Menu.Item>

@@ -38,10 +38,7 @@ const groupColumns = [{
     key: 'created_at',
 }];
 
-const groupColumnsMobile = [{
-    title: 'Name',
-    dataIndex: 'name',
-    key: 'name',
-}];
 
-export default { groupColumns: groupColumns, openColumns: openColumns, groupColumnsMobile };
+
+
+export default { groupColumns: groupColumns, openColumns: openColumns };

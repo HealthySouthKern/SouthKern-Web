@@ -8,6 +8,7 @@ import './App.less';
 import Login from './components/login';
 import Dashboard from './components/dashboard';
 import Channels from './components/channels';
+import Users from './components/users';
 
 class App extends Component {
   render() {
@@ -17,6 +18,7 @@ class App extends Component {
           <Route exact path="/" component={Login} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/channels" component={Channels} />
+          <Route path="/users" component={Users} />
         </div>
       </BrowserRouter>
     );

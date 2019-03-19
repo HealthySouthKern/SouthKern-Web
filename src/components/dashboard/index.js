@@ -1,12 +1,13 @@
 import React, { Component } from 'react';
-import { Row, Col, Card, Icon } from 'antd';
+import { Row, Col, Card, Icon, Input, Button } from 'antd';
 import { Line } from 'react-chartjs-2';
 
 import withLayout from '../HOC/withLayout';
 import dashboardStyles from "./styles";
 import firebase from "../../firebase";
+import StatusUpdate from './sub_components/statusUpdate';
 
-import HistoryItem from '../history';
+import HistoryItem from './sub_components/history';
 
 
 class dashboard extends Component {
@@ -20,10 +21,24 @@ class dashboard extends Component {
             historyItems: [],
             user: {},
             chartData: {},
+            statusUpdates: [],
+            statusText: '',
             showChart: false,
         }
     }
 
+    handleStatusPost() {
+        const { statusText } = this.state;
+
+        firebase.database().ref('statusUpdates').push({
+            text: statusText,
+            createdAt: Date.now()
+        });
+
+        this.setState({
+            statusText: ''
+        })
+    }
 
     componentWillReceiveProps(props) {
         if (props.user) {
@@ -105,6 +120,15 @@ class dashboard extends Component {
                 })
             });
 
+            firebase.database().ref('statusUpdates').once('value').then((statusUpdates) => {
+                let tempArray = [];
+                Object.keys(statusUpdates.val()).map((key, index) => {
+                    tempArray.push(statusUpdates.val()[key]);
+                });
+
+                this.setState({ statusUpdates: tempArray });
+            });
+
             user.getIdToken().then((token) => {
 
                 fetchOpenChannels({token: token}).then((channels) => {
@@ -117,10 +141,14 @@ class dashboard extends Component {
                     this.setState({groupChannels: channels.data[0].channels});
                 });
 
-                fetchUserList({token: token}).then((users) => {
-                    console.log(users.data[0].users);
-                    this.setState({userList: users.data[0].users});
+                firebase.database().ref('southkernUsers').once('value').then(users => {
+                    let tempArray = [];
+                    Object.keys(users.val()).map((key, index) => {
+                        tempArray[index] = users.val()[key];
+                    });
+                    this.setState({ userList: tempArray });
                 });
+
             });
         } else {
             this.props.history.push('/');
@@ -129,8 +157,9 @@ class dashboard extends Component {
     }
 
     render() {
-        const { groupChannels, openChannels, userList, chartData, chartOptions, showChart, historyItems } = this.state;
+        const { groupChannels, openChannels, userList, chartData, chartOptions, statusUpdates, showChart, historyItems } = this.state;
         let activeCount = 0;
+        //TODO implement active count using firebase users.
         userList.map((user) => {
             if (user.is_online) {
                 activeCount++
@@ -155,7 +184,7 @@ class dashboard extends Component {
                         </Card>
                     </Col>
                 </Row>
-                <Row className='stats_history_wrapper'>
+                <Row className='stats_history_wrapper' style={{ marginBottom: '2%' }}>
                     <Col className='grid_container' xs={{ span: 1 }} lg={{ span: 1 }}>
                     <Card className='grid_box' style={{ overflowX: 'hidden', overflowY: 'scroll' }}>
                         <h3>Quick Stats</h3>
@@ -179,11 +208,24 @@ class dashboard extends Component {
                     </Card>
                     </Col>
                     <Col className='grid_container' xs={{ span: 1, offset: 1 }}>
-                    <Card className='grid_box' style={{ overflowY: 'scroll', overflowX: 'hidden' }}>
-                        {historyItems.map(historyItem => {
-                            return <HistoryItem user_name={historyItem.user_name} action={historyItem.action} date={historyItem.date} />
-                        })}
-                    </Card>
+                        <Card className='grid_box' style={{ overflowX: 'hidden', overflowY: 'scroll' }}>
+                            <Input value={this.state.statusText} style={{ marginBottom: '2%' }} onChange={(e) => { this.setState({ statusText: e.target.value })}} placeholder='What is going on in the community?' />
+                            <Button style={{ marginBottom: '2%' }} onClick={() => this.handleStatusPost()} >Post Status Update</Button>
+                            {statusUpdates ? statusUpdates.map((statusUpdate) => {
+                                return <StatusUpdate createdAt={statusUpdate.createdAt} text={statusUpdate.text} />
+                            }) : (
+                                <div/>
+                            )}
+                        </Card>
+                    </Col>
+                </Row>
+                <Row className='stats_history_wrapper'>
+                    <Col className='grid_container' xs={{ span: 1 }}>
+                        <Card className='grid_box' style={{ overflowY: 'scroll', overflowX: 'hidden' }}>
+                            {historyItems.map(historyItem => {
+                                return <HistoryItem user_name={historyItem.user_name} action={historyItem.action} date={historyItem.date} />
+                            })}
+                        </Card>
                     </Col>
                 </Row>
                 <style>{dashboardStyles}</style>

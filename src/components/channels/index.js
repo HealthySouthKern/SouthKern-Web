@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import {Checkbox, Table, Tabs} from 'antd';
+import {Checkbox, Table, Tabs, Icon, Dropdown, Menu, Modal, Button } from 'antd';
 import moment from 'moment';
 
 import channelStyles from './styles';
@@ -15,18 +15,37 @@ const fetchChannelMembers = firebase.functions().httpsCallable('fetchChannelMemb
 const fetchBannedAndMutedUsers = firebase.functions().httpsCallable('fetchBannedAndMutedUsers');
 const banOrMuteUser = firebase.functions().httpsCallable('banOrMuteUser');
 const unBanOrUnMuteUser = firebase.functions().httpsCallable('unBanOrUnMuteUser');
+const freezeChannel = firebase.functions().httpsCallable('freezeChannel');
+const deleteChannel = firebase.functions().httpsCallable('deleteChannel');
 
 
-function checkIfUserBannedOrMuted(list, userToCheck) {
-    for (let i = 0 ; i < list.length ; i++) {
-        console.log(list[i]);
-        if (list[i].user != null) {
-            if (list[i].user.user_id === userToCheck.user_id) {
-                return true;
+function checkIfUserBannedOrMuted(bannedList = null, mutedList =  null, userToCheck) {
+    if (userToCheck) {
+        if (bannedList) {
+            for (let i = 0; i < bannedList.length; i++) {
+
+                if (bannedList[i].user != null) {
+                    if (bannedList[i].user.user_id === userToCheck.user_id) {
+                        return true;
+                    }
+                } else {
+                    if (bannedList[i].user_id === userToCheck.user_id) {
+                        return true;
+                    }
+                }
             }
-        } else {
-            if (list[i].user_id === userToCheck.user_id) {
-                return true;
+        } else if (mutedList) {
+            for (let i = 0; i < mutedList.length; i++) {
+
+                if (mutedList[i].user != null) {
+                    if (mutedList[i].user.user_id === userToCheck.user_id) {
+                        return true;
+                    }
+                } else {
+                    if (mutedList[i].user_id === userToCheck.user_id) {
+                        return true;
+                    }
+                }
             }
         }
     }
@@ -68,11 +87,38 @@ class ChannelManager extends Component {
             loadingTable: true,
             loadingSubTable: true,
             mobile: false,
+            deleteModalVisible: false,
+            recordToDelete: null,
         };
 
-        this.expandedGroupRowRender = this.expandedGroupRowRender.bind(this);
-        this.expandedOpenRowRender = this.expandedOpenRowRender.bind(this);
         this.handleWindowResize = this.handleWindowResize.bind(this);
+
+        if (columns.openColumns[columns.openColumns.length - 1].title !== '') {
+            columns.groupColumns.push({
+                title: '',
+                className: 'table_actions',
+                render: (value, record, index) => {
+                    return (
+                        <Dropdown trigger={['click']} overlay={() => this.tableActionMenu(record)}>
+                            <Icon className='more_icon' type='ellipsis'/>
+                        </Dropdown>
+                    )
+                }
+            });
+
+            columns.openColumns.push({
+                title: '',
+                className: 'table_actions',
+                render: (value, record, index) => {
+                    return (
+                        <Dropdown trigger={['click']} overlay={() => this.tableActionMenu(record)}>
+                            <Icon className='more_icon' type='ellipsis'/>
+                        </Dropdown>
+                    )
+                }
+            });
+        }
+
     }
 
 
@@ -84,150 +130,161 @@ class ChannelManager extends Component {
 
 
 
+    tableActionMenu = (record) => {
+        console.log(record);
+       return (
+            <Menu>
+                <Menu.Item style={{ backgroundColor: record.freeze ? ' #85c1e9 ' : 'white' }}>
+                    <a target="_blank"
+                       rel="noopener noreferrer"
+                       style={{ color: record.freeze ? 'white' : ''}}
+                       onClick={() => {
+                           freezeChannel({
+                               token: this.state.firebaseToken,
+                               channel: record.channel_url,
+                               channelType: record.member_count ? 'group_channels' : 'open_channels',
+                               freeze: !record.freeze
+                           }).then((data) => {
+                               //TODO optimistically update ui
+                               record.freeze = !record.freeze;
+                               return data;
+                           }).catch((e) => {
+                               console.log(e);
+                           })
+                       }}
+                    >
+                        {!record.freeze ? 'Freeze channel' : 'Defrost channel'}
+                    </a>
+                </Menu.Item>
+                <Menu.Item>
+                    <a target="_blank"
+                       rel="noopener noreferrer"
+                       onClick={() => {
+                           this.setState({ deleteModalVisible: true, recordToDelete: record });
+                       }}
+                    >
+                        Delete channel
+                    </a>
+                </Menu.Item>
+            </Menu>
+        );
+    };
+
+    customExpandIcon(props) {
+        if (props.expanded) {
+            return <a style={{ color: 'black' }} onClick={e => {
+                props.onExpand(props.record, e);
+            }
+            }><Icon type="minus" /></a>
+        } else {
+            return <a style={{ color: 'black' }} onClick={e => {
+                props.onExpand(props.record, e);
+            }
+            }><Icon type="plus" /></a>
+        }
+    }
 
     expandedOpenRowRender = (parentRecord, index, indent, expanded) => {
         const openChannelUsers = parentRecord.participants;
-        const columns = [{
-            title: 'Email',
-            dataIndex: 'user_id',
-            key: 'user_id'
-        }, {
-            title: 'Nickname',
-            dataIndex: 'nickname',
-            key: 'nickname'
-        }, {
-            title: 'Status',
-            render: (value, record, index) => {
-                return <div>{record.is_online ? 'Online' : 'Offline' }</div>
-            },
-            key: 'is_online'
-        }, {
-            title: 'Last Online',
-            render: (value, record, index) => {
-                let humanDate = record.is_online ? 'Now' : moment(record.last_seen_at).format('MMMM Do YYYY');
-                return <div>{humanDate}</div>
-            },
-            key: 'last_online'
-        }, {
-            title: 'Actions',
-            dataIndex: 'operation',
-            key: 'operation',
-            render: (value, record, index) => (
-                <div style={{ width: '100%', float: 'left' }}>
-                    <Checkbox
-                        className='banUser'
-                        style={{ whiteSpace: 'nowrap' }}
-                        key='banUser'
-                        checked={record.is_banned}
-                        onChange={(e) => this.handleUserAction(e, record, parentRecord, 'ban')}
-                    >
-                        Banned
-                    </Checkbox>
-                    <Checkbox
-                        className='muteUser'
-                        style={{ margin: 0, whiteSpace: 'nowrap' }}
-                        key='muteUser'
-                        checked={record.is_muted}
-                        onChange={(e) => this.handleUserAction(e, record, parentRecord, 'mute')}
-                    >
-                        Muted
-                    </Checkbox>
-                </div>
-            ),
-        }];
+        let isUserBanned = false;
 
-        const columnsMobile = [{
-            title: 'Nickname',
-            dataIndex: 'user_name',
-            key: 'user_name'
-        }, {
-            title: 'Actions',
-            dataIndex: 'operation',
-            key: 'operation',
-            render: (value, record, index) => (
-                <div style={{ width: '100%', float: 'left' }}>
-                    <Checkbox
-                        className='banUser'
-                        style={{ whiteSpace: 'nowrap' }}
-                        key='banUser'
-                        checked={record.is_banned}
-                        onChange={(e) => this.handleUserAction(e, record, parentRecord, 'ban')}
-                    >
-                        Banned
-                    </Checkbox>
-                    <Checkbox
-                        className='muteUser'
-                        style={{ margin: 0, whiteSpace: 'nowrap' }}
-                        key='muteUser'
-                        checked={record.is_muted}
-                        onChange={(e) => this.handleUserAction(e, record, parentRecord, 'mute')}
-                    >
-                        Muted
-                    </Checkbox>
-                </div>
-            ),
-        }];
-
-        return <Table dataSource={openChannelUsers}  columns={!this.state.mobile ? columns : columnsMobile} />
-    };
-
-    expandedGroupRowRender = (parentRecord, index, indent, expanded) => {
-        const groupChannelUsers = parentRecord.members;
-        const bannedUsers = parentRecord.bannedMembers;
-        const mutedUsers = parentRecord.mutedMembers;
-        const columns = [{
+        const expandedOpenRow = [{
             title: 'Email',
             className: 'email_column',
             dataIndex: 'user_id',
-            key: 'user_id'
+            render: (value, record, index) => {
+                if (parentRecord.bannedMembers) {
+                    isUserBanned = checkIfUserBannedOrMuted(parentRecord.bannedMembers, parentRecord.mutedMembers, record)
+                }
+                return {
+                    props: {
+                        style: { background: isUserBanned ? '#ddd' : '#fff' }
+                    },
+                    children: <div>{value}</div>
+                }
+            }
         }, {
-            title: 'Nickname',
-            dataIndex: 'user_name',
-            key: 'user_name'
+            title: 'Username',
+            dataIndex: 'nickname',
+            render: (value, record, index) => {
+                if (parentRecord.bannedMembers) {
+                    isUserBanned = checkIfUserBannedOrMuted(parentRecord.bannedMembers, parentRecord.mutedMembers, record)
+                }
+                return {
+                    props: {
+                        style: {background: isUserBanned ? '#ddd' : '#fff'}
+                    },
+                    children: <div>{value}</div>
+                }
+            }
         }, {
             title: 'Status',
             className: 'status_column',
             render: (value, record, index) => {
-                return <div>{record.is_online ? 'Online' : 'Offline' }</div>
+                if (parentRecord.bannedMembers) {
+                    isUserBanned = checkIfUserBannedOrMuted(parentRecord.bannedMembers, parentRecord.mutedMembers, record)
+                }
+                return {
+                    props: {
+                        style: {background: isUserBanned ? '#ddd' : '#fff'}
+                    },
+                    children: <div>{record.is_online ? 'Online' : 'Offline'}</div>
+                }
             },
             key: 'is_online'
         }, {
             title: 'Last Online',
             className: 'last_online_column',
             render: (value, record, index) => {
+                if (parentRecord.bannedMembers) {
+                    isUserBanned = checkIfUserBannedOrMuted(parentRecord.bannedMembers, parentRecord.mutedMembers, record)
+                }
                 let humanDate = record.is_online ? 'Now' : moment(record.last_seen_at).format('MMMM Do YYYY');
-                return <div>{humanDate}</div>
+                return {
+                    props: {
+                        style: {background: isUserBanned ? '#ddd' : '#fff'}
+                    },
+                    children: <div>{humanDate}</div>
+                }
             },
             key: 'last_online'
         }, {
             title: 'Actions',
             dataIndex: 'operation',
             key: 'operation',
-            render: (value, record, index) => (
-                <div style={{ width: '100%', float: 'left' }}>
-                    <Checkbox
-                        className='banUser'
-                        style={{ whiteSpace: 'nowrap' }}
-                        key='banUser'
-                        checked={parentRecord.bannedMembers ? checkIfUserBannedOrMuted(parentRecord.bannedMembers, record) : null}
-                        onChange={(e) => this.handleUserAction(e, record, parentRecord, 'ban')}
-                    >
-                        Banned
-                    </Checkbox>
-                    <Checkbox
-                        className='muteUser'
-                        style={{ margin: 0, whiteSpace: 'nowrap' }}
-                        key='muteUser'
-                        checked={parentRecord.mutedMembers ? checkIfUserBannedOrMuted(parentRecord.mutedMembers, record) : null}
-                        onChange={(e) => this.handleUserAction(e, record, parentRecord, 'mute')}
-                    >
-                        Muted
-                    </Checkbox>
-                </div>
-            ),
+            render: (value, record, index) => {
+                if (parentRecord.bannedMembers) {
+                    isUserBanned = checkIfUserBannedOrMuted(parentRecord.bannedMembers, parentRecord.mutedMembers, record)
+                }
+                return {
+                    props: {
+                        style: {background: isUserBanned ? '#ddd' : '#fff'}
+                    },
+                    children: <div style={{width: '100%', float: 'left'}}>
+                        <Checkbox
+                            className='banUser'
+                            style={{whiteSpace: 'nowrap'}}
+                            key='banUser'
+                            checked={parentRecord.bannedMembers ? checkIfUserBannedOrMuted(parentRecord.bannedMembers, null, record) : null}
+                            onChange={(e) => this.handleUserAction(e, record, parentRecord, 'ban')}
+                        >
+                            Banned
+                        </Checkbox>
+                        <Checkbox
+                            className='muteUser'
+                            style={{margin: 0, whiteSpace: 'nowrap'}}
+                            key='muteUser'
+                            checked={parentRecord.mutedMembers ? checkIfUserBannedOrMuted(null, parentRecord.mutedMembers, record) : null}
+                            onChange={(e) => this.handleUserAction(e, record, parentRecord, 'mute')}
+                        >
+                            Muted
+                        </Checkbox>
+                    </div>
+                }
+            },
         }];
 
-        const columnsMobile = [{
+        const expandedOpenRowMobile = [{
             title: 'Nickname',
             dataIndex: 'user_name',
             key: 'user_name'
@@ -241,7 +298,7 @@ class ChannelManager extends Component {
                         className='banUser'
                         style={{ whiteSpace: 'nowrap' }}
                         key='banUser'
-                        checked={parentRecord.bannedMembers ? checkIfUserBannedOrMuted(parentRecord.bannedMembers, record) : null}
+                        checked={parentRecord.bannedMembers ? checkIfUserBannedOrMuted(parentRecord.bannedMembers, null, record) : null}
                         onChange={(e) => this.handleUserAction(e, record, parentRecord, 'ban')}
                     >
                         Banned
@@ -250,7 +307,7 @@ class ChannelManager extends Component {
                         className='muteUser'
                         style={{ margin: 0, whiteSpace: 'nowrap' }}
                         key='muteUser'
-                        checked={parentRecord.mutedMembers ? checkIfUserBannedOrMuted(parentRecord.mutedMembers, record) : null}
+                        checked={parentRecord.mutedMembers ? checkIfUserBannedOrMuted(null, parentRecord.mutedMembers, record) : null}
                         onChange={(e) => this.handleUserAction(e, record, parentRecord, 'mute')}
                     >
                         Muted
@@ -259,7 +316,148 @@ class ChannelManager extends Component {
             ),
         }];
 
-        return <Table loading={this.state.loadingSubTable} rowKey={record => record.uid} dataSource={groupChannelUsers} columns={!this.state.mobile ? columns : columnsMobile} />
+        return <Table size={"middle"} dataSource={openChannelUsers}  columns={!this.state.mobile ? expandedOpenRow : expandedOpenRowMobile} />
+    };
+
+    expandedGroupRowRender = (parentRecord, index, indent, expanded) => {
+        console.log(parentRecord);
+        console.log(index);
+        console.log(indent);
+            const groupChannelUsers = parentRecord.members;
+            let isUserBanned = false;
+
+            const expandedGroupRow = [{
+                title: 'Email',
+                className: 'email_column',
+                dataIndex: 'user_id',
+                render: (value, record, index) => {
+                    if (parentRecord.bannedMembers) {
+                        isUserBanned = checkIfUserBannedOrMuted(parentRecord.bannedMembers, parentRecord.mutedMembers, record)
+                    }
+                    return {
+                        props: {
+                            style: { background: isUserBanned ? '#ddd' : '#fff' }
+                        },
+                        children: <div>{value}</div>
+                    }
+                }
+            }, {
+                title: 'Username',
+                dataIndex: 'nickname',
+                render: (value, record, index) => {
+                    if (parentRecord.bannedMembers) {
+                        isUserBanned = checkIfUserBannedOrMuted(parentRecord.bannedMembers, parentRecord.mutedMembers, record)
+                    }
+                    return {
+                        props: {
+                            style: {background: isUserBanned ? '#ddd' : '#fff'}
+                        },
+                        children: <div>{value}</div>
+                    }
+                }
+            }, {
+                title: 'Status',
+                className: 'status_column',
+                render: (value, record, index) => {
+                    if (parentRecord.bannedMembers) {
+                        isUserBanned = checkIfUserBannedOrMuted(parentRecord.bannedMembers, parentRecord.mutedMembers, record)
+                    }
+                    return {
+                        props: {
+                            style: {background: isUserBanned ? '#ddd' : '#fff'}
+                        },
+                        children: <div>{record.is_online ? 'Online' : 'Offline'}</div>
+                    }
+                },
+                key: 'is_online'
+            }, {
+                title: 'Last Online',
+                className: 'last_online_column',
+                render: (value, record, index) => {
+                    if (parentRecord.bannedMembers) {
+                        isUserBanned = checkIfUserBannedOrMuted(parentRecord.bannedMembers, parentRecord.mutedMembers, record)
+                    }
+                    let humanDate = record.is_online ? 'Now' : moment(record.last_seen_at).format('MMMM Do YYYY');
+                    return {
+                        props: {
+                            style: {background: isUserBanned ? '#ddd' : '#fff'}
+                        },
+                        children: <div>{humanDate}</div>
+                    }
+                },
+                key: 'last_online'
+            }, {
+                title: 'Actions',
+                dataIndex: 'operation',
+                key: 'operation',
+                render: (value, record, index) => {
+                    if (parentRecord.bannedMembers) {
+                        isUserBanned = checkIfUserBannedOrMuted(parentRecord.bannedMembers, parentRecord.mutedMembers, record)
+                    }
+                    return {
+                        props: {
+                            style: {background: isUserBanned ? '#ddd' : '#fff'}
+                        },
+                        children: <div style={{width: '100%', float: 'left'}}>
+                            <Checkbox
+                                className='banUser'
+                                style={{whiteSpace: 'nowrap'}}
+                                key='banUser'
+                                checked={parentRecord.bannedMembers ? checkIfUserBannedOrMuted(parentRecord.bannedMembers, null, record) : null}
+                                onChange={(e) => this.handleUserAction(e, record, parentRecord, 'ban')}
+                            >
+                                Banned
+                            </Checkbox>
+                            <Checkbox
+                                className='muteUser'
+                                style={{margin: 0, whiteSpace: 'nowrap'}}
+                                key='muteUser'
+                                checked={parentRecord.mutedMembers ? checkIfUserBannedOrMuted(null, parentRecord.mutedMembers, record) : null}
+                                onChange={(e) => this.handleUserAction(e, record, parentRecord, 'mute')}
+                            >
+                                Muted
+                            </Checkbox>
+                        </div>
+                    }
+                },
+            }];
+
+            const columnsMobile = [{
+                title: 'Username',
+                dataIndex: 'nickname',
+                key: 'nickname'
+            }, {
+                title: 'Actions',
+                dataIndex: 'operation',
+                key: 'operation',
+                render: (value, record, index) => (
+                    <div style={{width: '100%', float: 'left'}}>
+                        <Checkbox
+                            className='banUser'
+                            style={{whiteSpace: 'nowrap'}}
+                            key='banUser'
+                            checked={parentRecord.bannedMembers ? checkIfUserBannedOrMuted(parentRecord.bannedMembers, null, record) : null}
+                            onChange={(e) => this.handleUserAction(e, record, parentRecord, 'ban')}
+                        >
+                            Banned
+                        </Checkbox>
+                        <Checkbox
+                            className='muteUser'
+                            style={{margin: 0, whiteSpace: 'nowrap'}}
+                            key='muteUser'
+                            checked={parentRecord.mutedMembers ? checkIfUserBannedOrMuted(null, parentRecord.mutedMembers, record) : null}
+                            onChange={(e) => this.handleUserAction(e, record, parentRecord, 'mute')}
+                        >
+                            Muted
+                        </Checkbox>
+                    </div>
+                ),
+            }];
+
+            return <Table size={"middle"} loading={this.state.loadingSubTable} rowKey={record => record.uid}
+                          dataSource={groupChannelUsers}
+                          expandIconAsCell={false}
+                          columns={!this.state.mobile ? expandedGroupRow : columnsMobile}/>
     };
 
 
@@ -270,13 +468,52 @@ class ChannelManager extends Component {
 
 
 
+
+    handleDeleteModalOk = (e, currentRecord) => {
+        console.log(currentRecord);
+        const { groupChannels, openChannels } = this.state;
+
+        let isGroupChannel = !!currentRecord.member_count;
+
+        let channels = isGroupChannel ? groupChannels : openChannels;
+
+        for (let i = 0 ; i < channels.length ; i++) {
+            if (channels[i] === currentRecord) {
+                channels.splice(i, 1);
+            }
+        }
+
+        deleteChannel({
+            token: this.state.firebaseToken,
+            channel: currentRecord.channel_url,
+            channelType: currentRecord.member_count ? 'group_channels' : 'open_channels',
+        }).then((data) => {
+            return data.data;
+        });
+
+        if (isGroupChannel) {
+            this.setState({
+                deleteModalVisible: false,
+                groupChannels: channels
+            });
+        } else {
+            this.setState({
+                deleteModalVisible: false,
+                openChannels: channels
+            })
+        }
+    };
+
+    handleDeleteModalCancel = (e) => {
+        this.setState({
+            deleteModalVisible: false,
+        });
+    };
+
     handleWindowResize() {
-        console.log('detected resize');
         if (window.innerWidth <= 760) {
-            console.log('mobile');
             this.setState({ mobile: true })
         } else {
-            console.log('not mobile');
             this.setState({ mobile: false })
         }
     }
@@ -286,13 +523,12 @@ class ChannelManager extends Component {
     }
 
     handleUserAction(e, record, parentRecord, action) {
-        console.log(e);
         if (!!parentRecord.firebaseToken) {
             if (e.target.checked) {
                 switch (action) {
                     case 'ban':
                         parentRecord.bannedMembers.push(record);
-                        this.forceUpdate()
+                        this.forceUpdate();
                         banOrMuteUser({
                             token: parentRecord.firebaseToken,
                             userID: record.user_id,
@@ -305,7 +541,7 @@ class ChannelManager extends Component {
                         break;
                     case 'mute':
                         parentRecord.mutedMembers.push(record);
-                        this.forceUpdate()
+                        this.forceUpdate();
                         banOrMuteUser({
                             token: parentRecord.firebaseToken,
                             userID: record.user_id,
@@ -320,9 +556,8 @@ class ChannelManager extends Component {
             } else {
                 switch (action) {
                     case 'ban':
-                        console.log(record);
                         removeUserFromArray(parentRecord.bannedMembers, record, () => {
-                            this.forceUpdate()
+                            this.forceUpdate();
                         });
                         unBanOrUnMuteUser({
                             token: parentRecord.firebaseToken,
@@ -338,7 +573,7 @@ class ChannelManager extends Component {
                         break;
                     case 'mute':
                         removeUserFromArray(parentRecord.mutedMembers, record, () => {
-                            this.forceUpdate()
+                            this.forceUpdate();
                         });
                         unBanOrUnMuteUser({
                             token: parentRecord.firebaseToken,
@@ -358,9 +593,10 @@ class ChannelManager extends Component {
     }
 
     handleRowExpand(isExpanded, record) {
-        this.setState({ loadingSubTable: true });
         let isGroupChannel = !!record.member_count;
         if (isExpanded) {
+            this.setState({ loadingSubTable: true });
+
             const channelMembersPromise = fetchChannelMembers({token: this.state.firebaseToken, channel: record.channel_url, isGroupChannel: isGroupChannel}).then((channelMembers) => {
                 isGroupChannel ? (
                     record.members = channelMembers.data[0].members
@@ -370,8 +606,6 @@ class ChannelManager extends Component {
 
                 record.firebaseToken = this.state.firebaseToken;
             });
-
-            console.log("running fetch banned");
 
             const fetchBannedPromise = fetchBannedAndMutedUsers({
                 token: this.state.firebaseToken,
@@ -399,24 +633,21 @@ class ChannelManager extends Component {
             });
 
             Promise.all([channelMembersPromise, fetchBannedPromise, fetchMutedPromise].map(p => p.catch(e => e))).then(results => {
-                console.log('test2');
-                console.log(results);
                 let bannedUsers = results[1];
                 if (isGroupChannel && record) {
                     for (let bannedUser in bannedUsers) {
                         record.members.push(bannedUsers[bannedUser].user);
-                        record.member_count = record.member_count + 1;
                     }
                 } else {
                     for (let bannedUser in bannedUsers) {
                         record.participants.push(bannedUsers[bannedUser].user);
-                        record.participant_count = record.participant_count + 1;
                     }
                 }
+
                 this.setState({ isExpanded, loadingSubTable: false });
             }).catch(e => {
                 console.log(e);
-            })
+            });
         }
     }
 
@@ -466,26 +697,42 @@ class ChannelManager extends Component {
     // *** HTML *** //
 
     render() {
-        const { groupChannels, openChannels, isExpanded, loadingTable } = this.state;
+        const { groupChannels, openChannels, loadingTable, deleteModalVisible, recordToDelete } = this.state;
 
         return (
             <div>
+                <Modal
+                    title="Confirm Channel Deletion"
+                    visible={deleteModalVisible}
+                    onOk={this.handleDeleteModalOk}
+                    onCancel={this.handleDeleteModalCancel}
+                    footer={<span style={{ whiteSpace: 'nowrap' }}>
+                        <Button onClick={(e) => this.handleDeleteModalCancel(e)}>Cancel</Button>
+                        <Button onClick={(e) => this.handleDeleteModalOk(e, recordToDelete)} type='danger'>Delete</Button>
+                    </span>}
+                >
+                    <p>Are you sure you want to delete {recordToDelete ? recordToDelete.name : 'this channel'}?</p>
+                </Modal>
                 <Tabs style={{ margin: 0, padding: 0, width: '100%' }} activeKey={this.state.currentTab} onChange={(key) => this.handleTabChange(key)}>
                     <TabPane tab="Open Channels" key="openChannels">
                         <Table
+                            expandIcon={(record) => this.customExpandIcon(record)}
                             loading={loadingTable}
                             dataSource={openChannels}
                             onExpand={(isExpanded, record) => this.handleRowExpand(isExpanded, record)}
-                            expandedRowRender={this.expandedOpenRowRender}
-                            columns={!this.state.mobile ? columns.openColumns : columns.groupColumnsMobile} />
+                            expandedRowRender={(record) => this.expandedOpenRowRender(record)}
+                            columns={!this.state.mobile ? columns.openColumns : columns.groupColumnsMobile}
+                            rowKey={record => record.channel_url} />
                     </TabPane>
                     <TabPane tab="Group Channels" key="groupChannels">
                         <Table
+                            expandIcon={(record) => this.customExpandIcon(record)}
                             loading={loadingTable}
                             dataSource={groupChannels}
                             onExpand={(isExpanded, record) => this.handleRowExpand(isExpanded, record)}
-                            expandedRowRender={this.expandedGroupRowRender}
-                            columns={!this.state.mobile ? columns.groupColumns : columns.groupColumnsMobile} />
+                            expandedRowRender={(record, index, indent) => this.expandedGroupRowRender(record, index, indent)}
+                            columns={!this.state.mobile ? columns.groupColumns : columns.groupColumnsMobile}
+                            rowKey={record => record.channel_url} />
                     </TabPane>
                 </Tabs>
                 <style>{channelStyles}</style>
