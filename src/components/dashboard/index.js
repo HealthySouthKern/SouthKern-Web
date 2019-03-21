@@ -51,7 +51,7 @@ class dashboard extends Component {
 
             const fetchOpenChannels = firebase.functions().httpsCallable('fetchOpenChannels');
             const fetchGroupChannels = firebase.functions().httpsCallable('fetchGroupChannels');
-            const fetchUserList = firebase.functions().httpsCallable('fetchUserList');
+            const fetchSendbirdStatisticsData = firebase.functions().httpsCallable('fetchSendbirdStatisticsData');
 
             firebase.database().ref('analytics/users').once('value').then((userCounts) => {
                 Object.keys(userCounts.val()).map((key, index) => {
@@ -141,6 +141,11 @@ class dashboard extends Component {
                     this.setState({groupChannels: channels.data[0].channels});
                 });
 
+                fetchSendbirdStatisticsData({token: token}).then((dataObj) => {
+                    console.log(dataObj)
+                    this.setState({sendbirdStatistics: dataObj.data});
+                });
+
                 firebase.database().ref('southkernUsers').once('value').then(users => {
                     let tempArray = [];
                     Object.keys(users.val()).map((key, index) => {
@@ -157,14 +162,7 @@ class dashboard extends Component {
     }
 
     render() {
-        const { groupChannels, openChannels, userList, chartData, chartOptions, statusUpdates, showChart, historyItems } = this.state;
-        let activeCount = 0;
-        //TODO implement active count using firebase users.
-        userList.map((user) => {
-            if (user.is_online) {
-                activeCount++
-            }
-        });
+        const { groupChannels, openChannels, userList, sendbirdStatistics, chartData, chartOptions, statusUpdates, showChart, historyItems } = this.state;
 
         return (
             <div>
@@ -189,6 +187,22 @@ class dashboard extends Component {
                     <Card className='grid_box' style={{ overflowX: 'hidden', overflowY: 'scroll' }}>
                         <h3>Quick Stats</h3>
                         <hr />
+                        <div className='data_wrapper'>
+                            <p className='data_title'>Monthly Active Users</p> <p className='data'>{sendbirdStatistics ? sendbirdStatistics.mau : 0}</p>
+                        </div>
+                        <hr />
+                        <div className='data_wrapper'>
+                            <p className='data_title'>Daily Active users</p> <p className='data'>{sendbirdStatistics ? sendbirdStatistics.dau : 0}</p>
+                        </div>
+                        <hr />
+                        <div className='data_wrapper'>
+                            <p className='data_title'>Currently Online Users</p> <p className='data'>{sendbirdStatistics ? sendbirdStatistics.ccu : 0}</p>
+                        </div>
+                        <hr />
+                        <div className='data_wrapper'>
+                            <p className='data_title'>Total Current Users</p> <p className='data'>{userList.length}</p>
+                        </div>
+                        <hr />
                         <span className='data_wrapper'>
                             <p className='data_title'>Total Open Channels</p> <p className='data'>{openChannels.length}</p>
                         </span>
@@ -196,14 +210,6 @@ class dashboard extends Component {
                         <span className='data_wrapper'>
                             <p className='data_title'>Total Group Channels</p> <p className='data'>{groupChannels.length}</p>
                         </span>
-                        <hr />
-                        <div className='data_wrapper'>
-                            <p className='data_title'>Total Current Users</p> <p className='data'>{userList.length}</p>
-                        </div>
-                        <hr />
-                        <div className='data_wrapper'>
-                            <p className='data_title'>Online Users</p> <p className='data'>{activeCount}</p>
-                        </div>
                         <hr />
                     </Card>
                     </Col>

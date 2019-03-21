@@ -60,7 +60,12 @@ export const loginStyle = `
     width: 100%;
     margin: 5% 0 5% 0;
     z-index: 99;
+}
 
+.login_forgot {
+    float: right;
+    margin-top: 10px;
+    color: #754315;
 }
 
 @media (max-width: 1000px) {
@@ -68,7 +73,7 @@ export const loginStyle = `
         width: 100%;
         border-radius: 0;
         background-color: #754315;
-        height: 50%;
+        height: 55%;
     }
     
     .login_email {
@@ -81,6 +86,11 @@ export const loginStyle = `
         color: black;
         background-color: white;
         margin: 0 0 10% 0;
+    }
+    
+    .login_forgot {
+        color: white;
+        margin-bottom: 5px;
     }
     
     .login {

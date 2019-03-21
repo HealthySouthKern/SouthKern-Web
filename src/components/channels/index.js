@@ -17,6 +17,7 @@ const banOrMuteUser = firebase.functions().httpsCallable('banOrMuteUser');
 const unBanOrUnMuteUser = firebase.functions().httpsCallable('unBanOrUnMuteUser');
 const freezeChannel = firebase.functions().httpsCallable('freezeChannel');
 const deleteChannel = firebase.functions().httpsCallable('deleteChannel');
+const addPerformedAction = firebase.functions().httpsCallable('addPerformedAction');
 
 
 function checkIfUserBannedOrMuted(bannedList = null, mutedList =  null, userToCheck) {
@@ -145,8 +146,13 @@ class ChannelManager extends Component {
                                channelType: record.member_count ? 'group_channels' : 'open_channels',
                                freeze: !record.freeze
                            }).then((data) => {
-                               //TODO optimistically update ui
                                record.freeze = !record.freeze;
+                               addPerformedAction({
+                                   token: this.state.firebaseToken,
+                                   user_name: this.state.currentUserName,
+                                   date: Date.now(),
+                                   action: `${record.freeze ? 'froze' : 'defrosted'} channel ${record.name}`
+                               });
                                return data;
                            }).catch((e) => {
                                console.log(e);
@@ -470,7 +476,6 @@ class ChannelManager extends Component {
 
 
     handleDeleteModalOk = (e, currentRecord) => {
-        console.log(currentRecord);
         const { groupChannels, openChannels } = this.state;
 
         let isGroupChannel = !!currentRecord.member_count;
@@ -488,6 +493,13 @@ class ChannelManager extends Component {
             channel: currentRecord.channel_url,
             channelType: currentRecord.member_count ? 'group_channels' : 'open_channels',
         }).then((data) => {
+            addPerformedAction({
+                token: this.state.firebaseToken,
+                user_name: this.state.currentUserName,
+                date: Date.now(),
+                action: `deleted channel ${currentRecord.name}`
+            });
+
             return data.data;
         });
 
@@ -536,7 +548,12 @@ class ChannelManager extends Component {
                             channel: parentRecord.channel_url,
                             action: 'ban'
                         }).then((data) => {
-
+                            addPerformedAction({
+                                token: this.state.firebaseToken,
+                                user_name: this.state.currentUserName,
+                                date: Date.now(),
+                                action: `banned ${record.nickname} from ${parentRecord.name}`
+                            });
                         });
                         break;
                     case 'mute':
@@ -549,7 +566,12 @@ class ChannelManager extends Component {
                             channel: parentRecord.channel_url,
                             action: 'mute'
                         }).then((data) => {
-
+                            addPerformedAction({
+                                token: this.state.firebaseToken,
+                                user_name: this.state.currentUserName,
+                                date: Date.now(),
+                                action: `muted ${record.nickname} in ${parentRecord.name}`
+                            });
                         });
                         break;
                 }
@@ -566,7 +588,12 @@ class ChannelManager extends Component {
                             channel: parentRecord.channel_url,
                             action: 'ban'
                         }).then(() => {
-
+                            addPerformedAction({
+                                token: this.state.firebaseToken,
+                                user_name: this.state.currentUserName,
+                                date: Date.now(),
+                                action: `unbanned ${record.nickname} from ${parentRecord.name}`
+                            });
                         }).catch(e => {
                             console.log(e);
                         });
@@ -582,7 +609,12 @@ class ChannelManager extends Component {
                             channel: parentRecord.channel_url,
                             action: 'mute'
                         }).then((data) => {
-
+                            addPerformedAction({
+                                token: this.state.firebaseToken,
+                                user_name: this.state.currentUserName,
+                                date: Date.now(),
+                                action: `unmuted ${record.nickname} in ${parentRecord.name}`
+                            });
                         }).catch(e => {
                             console.log(e);
                         });
@@ -674,7 +706,7 @@ class ChannelManager extends Component {
             user.getIdToken().then((token) => {
 
                 fetchOpenChannels({token: token}).then((channels) => {
-                    this.setState({ openChannels: channels.data[0].channels, firebaseToken: token });
+                    this.setState({ openChannels: channels.data[0].channels, firebaseToken: token, currentUserName: user.displayName });
                 });
 
                 fetchGroupChannels({token: token}).then((channels) => {

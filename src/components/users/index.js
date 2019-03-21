@@ -5,12 +5,12 @@ import { Table, Button, Modal, Dropdown, Icon, Menu, Form, Input, Select } from 
 
 import withLayout from '../HOC/withLayout';
 import firebase from '../../firebase';
-import columns from "../../resources/tableStructure";
 import userStyles from './styles';
 
 const banOrUnbanUserFromApp = firebase.functions().httpsCallable('banOrUnbanUserFromApp');
 const updateUserPasswordAndName = firebase.functions().httpsCallable('updateUserPasswordAndName');
 const deleteUserFromFirebaseAndSendbird = firebase.functions().httpsCallable('deleteUserFromFirebaseAndSendbird');
+const addPerformedAction = firebase.functions().httpsCallable('addPerformedAction');
 
 function debounce(fn, delay) {
     let timer = null;
@@ -170,7 +170,12 @@ class users extends Component {
                         token: token,
                         user_uid: getUID(currentRecord)
                     }).then(() => {
-                        console.log('user ' + action);
+                        addPerformedAction({
+                            token: this.state.firebaseToken,
+                            user_name: this.state.currentUserName,
+                            date: Date.now(),
+                            action: `${action === 'ban' ? 'banned' : 'unbanned'} ${currentRecord.user_name}`
+                        });
                     });
                     this.forceUpdate();
                 });
@@ -201,7 +206,14 @@ class users extends Component {
                     currentRecord[key] = values[key];
                 });
 
-                firebase.database().ref(`southkernUsers/${getUID(currentRecord)}`).set(currentRecord);
+                firebase.database().ref(`southkernUsers/${getUID(currentRecord)}`).set(currentRecord).then(() => {
+                    addPerformedAction({
+                        token: this.state.firebaseToken,
+                        user_name: this.state.currentUserName,
+                        date: Date.now(),
+                        action: `edited ${currentRecord.user_name}`
+                    });
+                });
 
                 this.props.form.resetFields();
 
@@ -221,6 +233,13 @@ class users extends Component {
                                 password: values.user_password,
                                 name: values.user_name,
                                 user_uid: credential.user.uid
+                            }).then(() => {
+                                addPerformedAction({
+                                    token: this.state.firebaseToken,
+                                    user_name: this.state.currentUserName,
+                                    date: Date.now(),
+                                    action: `created ${currentRecord.user_name}`
+                                });
                             });
 
                             // Do not want to store passwords in firebase database. But, we want to make sure they can sign into
@@ -259,11 +278,17 @@ class users extends Component {
                 users.splice(i , 1);
             }
         }
-        console.log(currentRecord);
         deleteUserFromFirebaseAndSendbird({
             token: this.state.firebaseToken,
             email: currentRecord.user_id,
             user_uid: getUID(currentRecord)
+        }).then(() => {
+            addPerformedAction({
+                token: this.state.firebaseToken,
+                user_name: this.state.currentUserName,
+                date: Date.now(),
+                action: `deleted ${currentRecord.user_name}`
+            });
         });
 
         firebase.database().ref(`southkernUsers/${getUID(currentRecord)}`).remove();
@@ -337,7 +362,7 @@ class users extends Component {
                     Object.keys(users.val()).map((key, index) => {
                         tempArray[index] = users.val()[key];
                     });
-                    this.setState({ users: tempArray, originalUsers: tempArray, firebaseToken: token });
+                    this.setState({ users: tempArray, originalUsers: tempArray, firebaseToken: token, currentUserName: user.displayName });
                 })
             })
         }

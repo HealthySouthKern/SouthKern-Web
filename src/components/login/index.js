@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Input, Button, Card } from "antd";
+import { Input, Button, Card, Modal, message } from "antd";
 
 import firebase from '../../firebase'
 
@@ -7,7 +7,6 @@ import firebase from '../../firebase'
 import { loginStyle } from './styles';
 import bhc_logo from '../../resources/assets/bhc_logo_color_centered.png';
 
-const fetchUserWithUserID = firebase.functions().httpsCallable('fetchUserwithUserID');
 const addPerformedAction = firebase.functions().httpsCallable('addPerformedAction');
 
 class Login extends Component {
@@ -17,6 +16,8 @@ class Login extends Component {
         this.state = {
             email: '',
             password: '',
+            recoveryEmail: '',
+            loadingReset: false
         }
     }
 
@@ -71,15 +72,51 @@ class Login extends Component {
         });
     }
 
+    handleForgottenPassword() {
+        this.setState({
+            modalVisible: true
+        })
+    }
+
+    handleCancel = (e) => {
+        console.log(e);
+        this.setState({
+            modalVisible: false,
+        });
+    };
+
+    sendRecoveryEmail() {
+        const { recoveryEmail } = this.state;
+
+        this.setState({ loadingReset: true });
+
+        firebase.auth().sendPasswordResetEmail(recoveryEmail).then(() => {
+            this.setState({ loadingReset: false });
+            message.success('Password recovery email sent successfully!');
+        })
+    }
+
     render() {
         return (
             <div className='login_container'>
                 <img className='login_logo' src={bhc_logo} alt='' />
-
+                <Modal
+                    title="Password Recovery"
+                    visible={this.state.modalVisible}
+                    onCancel={this.handleCancel}
+                    footer={
+                        <Button onClick={(e) => this.handleCancel(e)}>Cancel</Button>
+                    }
+                >
+                    <p style={{ marginBottom: 10 }}>Email to send recovery form to</p>
+                    <Input placeholder='Email here...' onChange={e => this.setState({recoveryEmail: e.target.value})} />
+                    <Button loading={this.state.loadingReset} onClick={() => this.sendRecoveryEmail()} style={{ marginTop: 10 }} type='primary'>Send recovery email</Button>
+                </Modal>
                 <Card className='login_card'>
                     <div className='text_wrapper'>
                         <Input className='login_email' value={this.state.email} placeholder='Email' type='email' onChange={(e) => this.setState({ email: e.target.value })} />
                         <Input className='login_password' value={this.state.password} placeholder='Password' type='password' onChange={(e) => this.setState({ password: e.target.value })} />
+                        <a className='login_forgot' onClick={() => this.handleForgottenPassword()} href="#">Forgot password</a>
                         <Button className='login' onClick={() => this.onLoginClicked()} >Login</Button>
                     </div>
                 </Card>

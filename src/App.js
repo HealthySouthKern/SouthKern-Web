@@ -9,6 +9,7 @@ import Login from './components/login';
 import Dashboard from './components/dashboard';
 import Channels from './components/channels';
 import Users from './components/users';
+import Settings from './components/settings';
 
 class App extends Component {
   render() {
@@ -19,6 +20,7 @@ class App extends Component {
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/channels" component={Channels} />
           <Route path="/users" component={Users} />
+          <Route path="/settings" component={Settings} />
         </div>
       </BrowserRouter>
     );
