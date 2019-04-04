@@ -135,7 +135,7 @@ class ChannelManager extends Component {
         console.log(record);
        return (
             <Menu>
-                <Menu.Item style={{ backgroundColor: record.freeze ? ' #85c1e9 ' : 'white' }}>
+                <Menu.Item style={{ backgroundColor: record.freeze ? ' #85c1e9 ' : '' }}>
                     <a target="_blank"
                        rel="noopener noreferrer"
                        style={{ color: record.freeze ? 'white' : ''}}

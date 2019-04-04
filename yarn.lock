@@ -1507,6 +1507,11 @@ agent-base@^4.1.0:
   dependencies:
     es6-promisify "^5.0.0"
 
+agentkeepalive@2.2.0:
+  version "2.2.0"
+  resolved "https://registry.yarnpkg.com/agentkeepalive/-/agentkeepalive-2.2.0.tgz#c5d1bd4b129008f1163f236f86e5faea2026e2ef"
+  integrity sha1-xdG9SxKQCPEWPyNvhuX66iAm4u8=
+
 ajv-errors@^1.0.0:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/ajv-errors/-/ajv-errors-1.0.1.tgz#f35986aceb91afadec4102fbd85014950cefa64d"
@@ -10634,6 +10639,15 @@ send@0.16.2:
     range-parser "~1.2.0"
     statuses "~1.4.0"
 
+sendbird@^3.0.97:
+  version "3.0.97"
+  resolved "https://registry.yarnpkg.com/sendbird/-/sendbird-3.0.97.tgz#d62b7c987725841e7bb8e516dd105e12b230deba"
+  integrity sha512-xdKbhlRH40pERLQBjyPLZICmeKIJMzDgg2B3+oirKi6U2U5zX8mrs/M49BwCWiu6mPVJ0IpHSnAEB/4T0pid4A==
+  dependencies:
+    agentkeepalive "2.2.0"
+    ws "6.0.0"
+    xhr2 "0.1.4"
+
 serialize-javascript@^1.4.0:
   version "1.6.1"
   resolved "https://registry.yarnpkg.com/serialize-javascript/-/serialize-javascript-1.6.1.tgz#4d1f697ec49429a847ca6f442a2a755126c4d879"
@@ -12390,6 +12404,13 @@ write@^0.2.1:
   dependencies:
     mkdirp "^0.5.1"
 
+ws@6.0.0:
+  version "6.0.0"
+  resolved "https://registry.yarnpkg.com/ws/-/ws-6.0.0.tgz#eaa494aded00ac4289d455bac8d84c7c651cef35"
+  integrity sha512-c2UlYcAZp1VS8AORtpq6y4RJIkJ9dQz18W32SpR/qXGfLDZ2jU4y4wKvvZwqbi7U6gxFQTeE+urMbXU/tsDy4w==
+  dependencies:
+    async-limiter "~1.0.0"
+
 ws@^5.2.0:
   version "5.2.2"
   resolved "https://registry.yarnpkg.com/ws/-/ws-5.2.2.tgz#dffef14866b8e8dc9133582514d1befaf96e980f"
@@ -12412,6 +12433,11 @@ xdg-basedir@^3.0.0:
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/xdg-basedir/-/xdg-basedir-3.0.0.tgz#496b2cc109eca8dbacfe2dc72b603c17c5870ad4"
   integrity sha1-SWsswQnsqNus/i3HK2A8F8WHCtQ=
+
+xhr2@0.1.4:
+  version "0.1.4"
+  resolved "https://registry.yarnpkg.com/xhr2/-/xhr2-0.1.4.tgz#7f87658847716db5026323812f818cadab387a5f"
+  integrity sha1-f4dliEdxbbUCYyOBL4GMras4el8=
 
 xml-name-validator@^3.0.0:
   version "3.0.0"
