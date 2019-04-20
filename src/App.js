@@ -1,5 +1,8 @@
 import React, { Component } from 'react';
 import { BrowserRouter, Route } from 'react-router-dom';
+import SendBird from 'sendbird';
+import SendBirdWidget from './js/widget';
+import TokenManager from './resources/tokenManager'
 
 import 'antd/dist/antd.css';  // or 'antd/dist/antd.less'
 import './App.less';
@@ -12,6 +15,11 @@ import Users from './components/users';
 import Settings from './components/settings';
 
 class App extends Component {
+
+  componentWillMount() {
+    window.SendBird = SendBird;
+  }
+
   render() {
     return (
       <BrowserRouter>

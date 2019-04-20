@@ -8,6 +8,8 @@ import firebase from "../../firebase";
 import StatusUpdate from './sub_components/statusUpdate';
 
 import HistoryItem from './sub_components/history';
+import SendBirdWidget from "../../js/widget";
+import TokenManager from "../../resources/tokenManager";
 
 
 class dashboard extends Component {
@@ -28,22 +30,34 @@ class dashboard extends Component {
     }
 
     handleStatusPost() {
-        const { statusText } = this.state;
+        const { statusText, statusUpdates } = this.state;
+
+        let now = Date.now();
 
         firebase.database().ref('statusUpdates').push({
             text: statusText,
-            createdAt: Date.now()
+            createdAt: now
         });
 
+        statusUpdates.push({text: statusText, createdAt: now});
+
         this.setState({
-            statusText: ''
+            statusText: '',
+            statusUpdates
         })
+    }
+
+    componentWillMount() {
     }
 
     componentWillReceiveProps(props) {
         if (props.user) {
 
             const user = props.user;
+            console.log(user);
+
+            SendBirdWidget.startWithConnect(TokenManager.getSendbirdAppId(), user.email, user.displayName);
+
             let data = {};
             let options = {};
             let userCountArray = [];
@@ -122,11 +136,13 @@ class dashboard extends Component {
 
             firebase.database().ref('statusUpdates').once('value').then((statusUpdates) => {
                 let tempArray = [];
-                Object.keys(statusUpdates.val()).map((key, index) => {
-                    tempArray.push(statusUpdates.val()[key]);
-                });
+                if (statusUpdates.val() != null) {
+                    Object.keys(statusUpdates.val()).map((key, index) => {
+                        tempArray.push(statusUpdates.val()[key]);
+                    });
 
-                this.setState({ statusUpdates: tempArray });
+                    this.setState({statusUpdates: tempArray});
+                }
             });
 
             user.getIdToken().then((token) => {

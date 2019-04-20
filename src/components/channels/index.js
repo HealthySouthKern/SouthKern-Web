@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import {Checkbox, Table, Tabs, Icon, Dropdown, Menu, Modal, Button } from 'antd';
+import {Checkbox, Table, Tabs, Icon, Dropdown, Menu, Modal, Button, Input } from 'antd';
 import moment from 'moment';
 
 import channelStyles from './styles';
@@ -8,6 +8,7 @@ import firebase from "../../firebase";
 import columns from '../../resources/tableStructure';
 
 const TabPane = Tabs.TabPane;
+const CheckboxGroup = Checkbox.Group
 
 const fetchOpenChannels = firebase.functions().httpsCallable('fetchOpenChannels');
 const fetchGroupChannels = firebase.functions().httpsCallable('fetchGroupChannels');
@@ -18,6 +19,7 @@ const unBanOrUnMuteUser = firebase.functions().httpsCallable('unBanOrUnMuteUser'
 const freezeChannel = firebase.functions().httpsCallable('freezeChannel');
 const deleteChannel = firebase.functions().httpsCallable('deleteChannel');
 const addPerformedAction = firebase.functions().httpsCallable('addPerformedAction');
+const createChannel = firebase.functions().httpsCallable('createChannel');
 
 
 function checkIfUserBannedOrMuted(bannedList = null, mutedList =  null, userToCheck) {
@@ -89,7 +91,12 @@ class ChannelManager extends Component {
             loadingSubTable: true,
             mobile: false,
             deleteModalVisible: false,
+            createModalVisible: false,
+            channelName: '',
+            channelType: null,
+            recordToCreate: null,
             recordToDelete: null,
+            users: [],
         };
 
         this.handleWindowResize = this.handleWindowResize.bind(this);
@@ -135,7 +142,7 @@ class ChannelManager extends Component {
         console.log(record);
        return (
             <Menu>
-                <Menu.Item style={{ backgroundColor: record.freeze ? ' #85c1e9 ' : '' }}>
+                <Menu.Item style={{ backgroundColor: record.freeze ? ' #85c1e9 ' : 'white' }}>
                     <a target="_blank"
                        rel="noopener noreferrer"
                        style={{ color: record.freeze ? 'white' : ''}}
@@ -473,7 +480,23 @@ class ChannelManager extends Component {
 
 
 
+    handleCreateModalOk = (e, currentTab) => {
+        let channelObj = {
+            user_ids: this.state.checkedValues,
+            name: this.state.channelName
+        };
 
+        createChannel({ token: this.state.firebaseToken, channelObj, channelType: currentTab }).then((channel) => {
+            let { openChannels, groupChannels } = this.state;
+            if (currentTab === 'openChannels') {
+                openChannels.push(channel.data);
+                this.setState({createModalVisible: false, openChannels, channelName: '' });
+            } else {
+                groupChannels.push(channel.data);
+                this.setState({ createModalVisible: false, groupChannels, channelName: '' });
+            }
+        })
+    };
 
     handleDeleteModalOk = (e, currentRecord) => {
         const { groupChannels, openChannels } = this.state;
@@ -520,6 +543,35 @@ class ChannelManager extends Component {
         this.setState({
             deleteModalVisible: false,
         });
+    };
+
+    handleShowCreateModal() {
+        if (this.state.currentTab !== 'openChannels') {
+            firebase.database().ref('southkernUsers').once('value').then(users => {
+                let tempArray = [];
+                Object.keys(users.val()).map((key, index) => {
+                    let user = users.val()[key];
+                    if (user != null) {
+                        if (user.user_name != null && user.user_id != null) {
+                            tempArray[index] = {
+                                label: user.user_name,
+                                value: user.user_id
+                            };
+                        }
+                    }
+                });
+                this.setState({users: tempArray, createModalVisible: true});
+            })
+        } else {
+            this.setState({ createModalVisible: true })
+        }
+    }
+
+    handleCreateModalCancel = (e) => {
+        this.setState({
+            createModalVisible: false,
+            channelName: ''
+        })
     };
 
     handleWindowResize() {
@@ -683,7 +735,10 @@ class ChannelManager extends Component {
         }
     }
 
-
+    handleCheckboxChange(checkedValues) {
+        console.log(checkedValues)
+        this.setState({ checkedValues })
+    }
 
 
 
@@ -729,10 +784,34 @@ class ChannelManager extends Component {
     // *** HTML *** //
 
     render() {
-        const { groupChannels, openChannels, loadingTable, deleteModalVisible, recordToDelete } = this.state;
-
+        const { groupChannels, openChannels, loadingTable, deleteModalVisible, recordToDelete, createModalVisible, users } = this.state;
         return (
             <div>
+                <Modal
+                    title="Create Channel"
+                    visible={createModalVisible}
+                    onOk={this.handleCreateModalOk}
+                    onCancel={this.handleCreateModalCancel}
+                    footer={<span style={{ whiteSpace: 'nowrap' }}>
+                        <Button onClick={(e) => this.handleCreateModalCancel(e)}>Cancel</Button>
+                        <Button onClick={(e) => this.handleCreateModalOk(e, this.state.currentTab)} type='primary'>Create</Button>
+                    </span>}
+                >
+                    <Input onChange={(e) => this.setState({ channelName: e.target.value })} value={this.state.channelName} style={{ marginBottom: 15 }} placeholder='What is the name of your channel?' />
+                    {this.state.currentTab !== 'openChannels' ? <span>
+                        <label htmlFor='inviteList' >Invite people</label>
+                        <div id='inviteList' style={{ textAlign: 'left', height: 250, overflowY: 'scroll', overflowX: 'hidden'}}>
+                            <CheckboxGroup onChange={(checkedValues) => this.handleCheckboxChange(checkedValues)}>
+                                {users.map((user, index) => {
+                                    return <div>
+                                        <Checkbox key={index} value={user.value}>{user.label}</Checkbox>
+                                    </div>
+                                })}
+                            </CheckboxGroup>
+                        </div>
+                    </span>
+                        : <div/>}
+                </Modal>
                 <Modal
                     title="Confirm Channel Deletion"
                     visible={deleteModalVisible}
@@ -745,6 +824,11 @@ class ChannelManager extends Component {
                 >
                     <p>Are you sure you want to delete {recordToDelete ? recordToDelete.name : 'this channel'}?</p>
                 </Modal>
+                <Button type='primary'
+                        onClick={(e) => this.handleShowCreateModal(e)}
+                >
+                    {`Create ${this.state.currentTab === 'openChannels' ? ' open channel' : ' group channel'}`}
+                </Button>
                 <Tabs style={{ margin: 0, padding: 0, width: '100%' }} activeKey={this.state.currentTab} onChange={(key) => this.handleTabChange(key)}>
                     <TabPane tab="Open Channels" key="openChannels">
                         <Table

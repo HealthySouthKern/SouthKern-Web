@@ -7,6 +7,7 @@ const historyStyles = `
         padding: 5px;
         background-color: #754315;
         border-radius: 5px;
+        -webkit-transform: translate3d(0, 0, 0);
     }
     
     .name_date_container {

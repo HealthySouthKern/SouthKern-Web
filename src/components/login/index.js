@@ -18,14 +18,18 @@ class Login extends Component {
             password: '',
             recoveryEmail: '',
             loadingReset: false
-        }
+        };
+
+        this.displayChatWidget = this.displayChatWidget.bind(this);
     }
 
     componentWillMount() {
+        this.displayChatWidget(false);
         firebase.auth().onAuthStateChanged(function(user) {
             if (user) {
                 // User is signed in.
                 if (this.props) {
+                    this.displayChatWidget(true);
                     this.props.history.push('/');
                 }
             }
@@ -55,7 +59,7 @@ class Login extends Component {
                             });
 
                             this.setState({ email: '', password: '' });
-
+                            this.displayChatWidget(true);
                             this.props.history.push('/dashboard');
                         } else {
                             // not an admin -> sign out of firebase
@@ -94,6 +98,15 @@ class Login extends Component {
             this.setState({ loadingReset: false });
             message.success('Password recovery email sent successfully!');
         })
+    }
+
+    displayChatWidget(bool) {
+        const widget = document.getElementById("sb_widget");
+        if (bool) {
+            widget.style.display = 'block'
+        } else {
+            widget.style.display = 'none'
+        }
     }
 
     render() {

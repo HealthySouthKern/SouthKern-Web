@@ -115,7 +115,7 @@ class users extends Component {
         },
         key: 'is_online'
     }, {
-        title: 'Last Online',
+        title: 'Last Seen At',
         className: 'last_online_column',
         render: (value, record, index) => {
             let humanDate = record.is_online ? 'Now' : moment(record.last_seen_at).format('MMMM Do YYYY');
